@@ -1,20 +1,15 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  PoC repo for testing whether openspec config.yaml can drive the engineering workflow
+  (branch -> implement -> review -> commit) without pasting a prompt each time.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  tasks:
+    - "The FIRST task must be: create a git branch using the create-branch skill, but ONLY if currently on main/master. If already on a feature branch for this work, reuse it."
+    - "After the implementation tasks, add a task: run /security-review"
+    - "After that, add a task: run /code-review high"
+    - "After that, add a task: run codex adversarial review via `node \"$(ls -d ~/.claude/plugins/cache/openai-codex/codex/*/ | sort -V | tail -1)scripts/codex-companion.mjs\" adversarial-review --scope working-tree`. If the command fails with a non-zero exit code, treat it as 'codex plugin not installed' and continue."
+    - "After all reviews, add a task: apply fixes for all review findings"
+    - "The LAST task must be: commit using the commit skill"
+    - "Do NOT add an archive task"
