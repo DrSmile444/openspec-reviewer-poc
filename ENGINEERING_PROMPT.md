@@ -1,0 +1,1 @@
+/goal good, let's update everything 0) /create-branch 1) /opsx:propose 2) /opsx:apply 3) testing and checking e2e, if possible 4) run a) /security-review b) /code-review high  and c) /codex:adversarial-review in parallel with subagents 5) and do fixes after all code reviews 6) /opsx:archive 7) /commit with multiple commits, if possible
