@@ -1,15 +1,74 @@
 schema: spec-driven
 
 context: |
-  PoC repo for testing whether openspec config.yaml can drive the engineering workflow
-  (branch -> implement -> review -> commit) without pasting a prompt each time.
+  This repo drives its whole engineering workflow from this file. The rules below replace a
+  prompt that used to be pasted by hand on every task: branch, implement, verify, commit,
+  review, fix, commit.
+
+  Everything the rules reference already exists on the machine - no helper scripts, no
+  generated commands, nothing installed outside this repo. The only file that carries the
+  workflow is this one.
+
+  Conventions: Conventional Branch for branch names, Conventional Commits for commits.
 
 rules:
+  proposal:
+    - >-
+      Record the task tracker ID. If an ID matching [A-Z]+-[0-9]+ is in play - named by the
+      user, discussed earlier in the conversation, or present in the current branch name -
+      add a line `Task: <ID>` at the end of the Why section. If there is none, write
+      `Task: none`. This has to land in the file: later phases run in a fresh context and
+      cannot recover it from the conversation.
+
   tasks:
-    - "The FIRST task must be: create a git branch using the create-branch skill, but ONLY if currently on main/master. If already on a feature branch for this work, reuse it."
-    - "After the implementation tasks, add a task: run /security-review"
-    - "After that, add a task: run /code-review high"
-    - "After that, add a task: run codex adversarial review via `node \"$(ls -d ~/.claude/plugins/cache/openai-codex/codex/*/ | sort -V | tail -1)scripts/codex-companion.mjs\" adversarial-review --scope working-tree`. If the command fails with a non-zero exit code, treat it as 'codex plugin not installed' and continue."
-    - "After all reviews, add a task: apply fixes for all review findings"
-    - "The LAST task must be: commit using the commit skill"
-    - "Do NOT add an archive task"
+    - >-
+      The rules below are constraints on the task list you generate, not text to copy into
+      it. Keep every generated task line to one or two sentences.
+    - >-
+      Task group 1 is `Branch`, one task, resolved before any code is written. A work branch
+      is one whose name matches `<feature|bugfix|hotfix|chore>/...`. Anything else - main,
+      master, develop, uat, staging, `release/*`, or an unprefixed name - is not a work
+      branch, so create one with the create-branch skill. Already on a work branch: reuse it
+      if it has zero commits ahead of the trunk and no open PR, or if its task ID matches the
+      `Task:` line in proposal.md. Otherwise show the user the branch name, how many commits
+      it is ahead of trunk, any open PR, and the new change name, then ask whether to reuse
+      it, branch off it, or branch off the trunk. When creating, base the new branch on the
+      CURRENT branch - stacked branches are expected here - and use the change name as the
+      description slug. If the current branch has no upstream, skip the `git pull --ff-only`
+      step instead of stopping on it.
+    - >-
+      Then the implementation task groups, derived from specs and design.
+    - >-
+      Then a verification task: exercise the change end to end with whatever tooling this
+      project and this environment actually offer. Use the `run` skill to drive the app, a
+      browser-automation MCP for frontend work, or a throwaway probe script for backend and
+      logic. Do not assume a stack or a test runner. If nothing can be exercised, say so
+      explicitly rather than ticking the task off in silence.
+    - >-
+      Then a task: commit the implementation with the commit skill. This comes BEFORE the
+      reviews on purpose - the built-in /security-review reads `git diff origin/HEAD...`, so
+      it only ever sees committed work. Nothing is pushed at this point, so a bad commit is
+      still local and rewritable.
+    - >-
+      Then a `Review` group of exactly three tasks, run in parallel with subagents. Collect
+      findings only - fix nothing yet.
+      (a) /security-review, invoked through the Skill tool.
+      (b) `claude -p '/code-review high'` through Bash. The built-in /code-review is marked
+      disable-model-invocation and cannot be called through the Skill tool; a headless
+      subprocess is the supported way to run it, and it reads the working tree.
+      (c) Codex adversarial review. Resolve the script first:
+      `C=$(ls -d ~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs 2>/dev/null | sort -V | tail -1)`.
+      Empty means the plugin is not installed - skip the task, note "2 of 3 reviews", carry
+      on. Non-empty means run `node "$C" adversarial-review --scope working-tree`; a non-zero
+      exit is then a review FAILURE, not an absent plugin. Do not block on it, but report it
+      as a failure rather than filing it under "plugin missing".
+    - >-
+      Then a task: apply fixes for the findings from all three reviews, once every review has
+      finished. Not one review at a time - concurrent reviewers otherwise collide on the same
+      files.
+    - >-
+      The LAST task commits the fixes with the commit skill, as its own commit, separate from
+      the implementation commit.
+    - >-
+      Do NOT add an archive task. Do NOT add a task that pushes or opens a pull request -
+      that stays a manual decision.
