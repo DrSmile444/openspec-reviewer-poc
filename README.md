@@ -15,19 +15,37 @@ exercise the workflow itself.
 Paste this into any Claude Code session in the project you want to adopt the workflow:
 
 ```
-Read https://raw.githubusercontent.com/DrSmile444/openspec-reviewer-poc/refs/heads/main/openspec/config.yaml
-and update my project's openspec/config.yaml to follow the same workflow rules.
+Install this workflow into my project. Download these three files with curl — not WebFetch,
+which summarises instead of returning the file verbatim — and write each to the same path
+here:
+
+https://raw.githubusercontent.com/DrSmile444/openspec-reviewer-poc/refs/heads/main/openspec/config.yaml
+https://raw.githubusercontent.com/DrSmile444/openspec-reviewer-poc/refs/heads/main/.claude/skills/create-branch/SKILL.md
+https://raw.githubusercontent.com/DrSmile444/openspec-reviewer-poc/refs/heads/main/.claude/skills/commit/SKILL.md
+
+If openspec/config.yaml already exists, show me the diff and ask before overwriting it.
 ```
 
-Two things to know before running it:
+`config.yaml` carries the workflow itself; the two skills are what its branch and commit
+steps call by name. Without them those steps still run, but the agent improvises them.
 
-- **It only writes `openspec/config.yaml`.** Nothing else is touched. If the target project
-  already has rules there, tell the agent whether to merge or replace them.
-- **The branch and commit steps need two skills.** They ship in
-  [`.claude/skills/`](.claude/skills/) here — copy `create-branch/` and `commit/` into the
-  target project's `.claude/skills/`, or into `~/.claude/skills/` to have them everywhere.
-  Without them the workflow still runs, but those two steps fall back to whatever the agent
-  improvises.
+Same thing without an agent:
+
+```bash
+B=https://raw.githubusercontent.com/DrSmile444/openspec-reviewer-poc/refs/heads/main
+mkdir -p openspec .claude/skills/create-branch .claude/skills/commit
+curl -sL "$B/openspec/config.yaml"                  -o openspec/config.yaml
+curl -sL "$B/.claude/skills/create-branch/SKILL.md" -o .claude/skills/create-branch/SKILL.md
+curl -sL "$B/.claude/skills/commit/SKILL.md"        -o .claude/skills/commit/SKILL.md
+```
+
+Two notes:
+
+- **Install the skills globally instead** by pointing the last two at `~/.claude/skills/`, if
+  you want the workflow in every project rather than this one. If the new skills do not show
+  up straight away, `/reload-skills`.
+- **The rules only take effect on newly generated changes.** They are injected at propose
+  time, so an existing `tasks.md` keeps whatever it was built with.
 
 Afterwards, `/validate-openspec-config` (if you have it) confirms every rule actually reaches
 the CLI rather than being silently dropped.
