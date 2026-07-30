@@ -32,10 +32,11 @@ rules:
       if it has zero commits ahead of the trunk and no open PR, or if its task ID matches the
       `Task:` line in proposal.md. Otherwise show the user the branch name, how many commits
       it is ahead of trunk, any open PR, and the new change name, then ask whether to reuse
-      it, branch off it, or branch off the trunk. When creating, base the new branch on the
-      CURRENT branch - stacked branches are expected here - and use the change name as the
-      description slug. If the current branch has no upstream, skip the `git pull --ff-only`
-      step instead of stopping on it.
+      it, branch off it, or branch off the trunk. When creating without having asked, default
+      the base to the CURRENT branch - stacked branches are expected here; when the user was
+      asked, honour whichever base they picked. Use the change name as the description slug.
+      If the chosen base has no upstream, skip the `git pull --ff-only` step instead of
+      stopping on it.
     - >-
       Then the implementation task groups, derived from specs and design.
     - >-
@@ -50,18 +51,32 @@ rules:
       it only ever sees committed work. Nothing is pushed at this point, so a bad commit is
       still local and rewritable.
     - >-
-      Then a `Review` group of exactly three tasks, run in parallel with subagents. Collect
-      findings only - fix nothing yet.
-      (a) /security-review, invoked through the Skill tool.
-      (b) `claude -p '/code-review high'` through Bash. The built-in /code-review is marked
-      disable-model-invocation and cannot be called through the Skill tool; a headless
-      subprocess is the supported way to run it, and it reads the working tree.
-      (c) Codex adversarial review. Resolve the script first:
+      Then a `Review` group of exactly three tasks. They are independent: launch all three
+      together rather than waiting for each to finish, and collect findings only - fix
+      nothing yet. The checklist below is flat because that is how tasks.md represents them,
+      not because they are sequential.
+    - >-
+      Review (a): /security-review through the Skill tool. Resolve its base first - it reads
+      `git diff origin/HEAD...`, so `origin/HEAD` has to exist. If
+      `git rev-parse --verify -q origin/HEAD` fails, try `git remote set-head origin -a`. If
+      there is no remote at all, this review cannot run: skip it and report "2 of 3 reviews"
+      rather than reporting a pass. If it runs and then fails, that is a FAILURE - report it,
+      do not silently continue.
+    - >-
+      Review (b): `claude -p '/code-review high'` through Bash. The built-in /code-review is
+      marked disable-model-invocation and cannot be called through the Skill tool; a headless
+      subprocess is the supported way to run it. It reads branch commits plus the working
+      tree, so it works whether or not the implementation is committed.
+    - >-
+      Review (c): Codex adversarial review. Resolve the script first:
       `C=$(ls -d ~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs 2>/dev/null | sort -V | tail -1)`.
-      Empty means the plugin is not installed - skip the task, note "2 of 3 reviews", carry
-      on. Non-empty means run `node "$C" adversarial-review --scope working-tree`; a non-zero
-      exit is then a review FAILURE, not an absent plugin. Do not block on it, but report it
-      as a failure rather than filing it under "plugin missing".
+      Empty means the plugin is not installed - skip the task, note it in the review count,
+      carry on. Non-empty means run
+      `node "$C" adversarial-review --scope branch --base <trunk>`. Use `--scope branch`, not
+      `--scope working-tree`: the implementation was committed in the previous step, so the
+      working tree is clean and a working-tree review would inspect nothing. A non-zero exit
+      is then a review FAILURE, not an absent plugin - do not block on it, but report it as a
+      failure rather than filing it under "plugin missing".
     - >-
       Then a task: apply fixes for the findings from all three reviews, once every review has
       finished. Not one review at a time - concurrent reviewers otherwise collide on the same

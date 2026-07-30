@@ -7,6 +7,17 @@ pasted into the agent as a prompt on every task.
 This document covers **how that works** first, then the **decision record** behind it: what
 was considered, what was rejected, and why.
 
+This is a proof-of-concept repository: it holds no application code and exists to host and
+exercise the workflow itself.
+
+## Layout
+
+- `openspec/config.yaml` — schema, project context, and the per-artifact rules that carry the
+  workflow
+- `openspec/changes/` — active changes
+- `openspec/specs/` — accepted specifications
+- `ENGINEERING_PROMPT.md` — the hand-pasted prompt this workflow replaces, kept for reference
+
 ---
 
 # Part 1 — How it works
@@ -14,9 +25,10 @@ was considered, what was rejected, and why.
 ## The mechanism
 
 OpenSpec's project config accepts exactly three fields: `schema`, `context`, and `rules`
-(per-artifact). They are consumed by one command — `openspec instructions <artifact> --json`
-— which means the config only influences **artifact generation**. There are no hooks around
-apply, no git integration, no orchestration.
+(per-artifact). `schema` selects the workflow schema and is read by `openspec new change`;
+`context` and `rules` are consumed by `openspec instructions <artifact> --json`, which means
+they influence **artifact generation only**. There are no hooks around apply, no git
+integration, no orchestration.
 
 So the workflow is not executed by the config. It is *compiled into* each change's
 `tasks.md` at propose time, and the apply phase then walks that checklist.
@@ -60,6 +72,10 @@ decision record.
 
 ## Step 1 — the branch decision
 
+`rules.tasks` in [`openspec/config.yaml`](openspec/config.yaml) is the source of truth; the
+diagram below is a reading aid. If the two disagree, the config wins and this section is
+stale.
+
 The goal is to avoid two failure modes: committing onto a shared branch, and spawning a
 redundant branch when the current one is already the right place.
 
@@ -80,10 +96,11 @@ current branch matches <feature|bugfix|hotfix|chore>/... ?
 
 Two details that matter in practice:
 
-- **New branches are based on the current branch, not on trunk.** Stacked branches are the
-  expected shape here: doing several tasks back to back means later PRs contain earlier
-  commits, which is accepted.
-- **`git pull --ff-only` is skipped when the current branch has no upstream.** The
+- **New branches default to the current branch as their base, not trunk.** Stacked branches
+  are the expected shape here: doing several tasks back to back means later PRs contain
+  earlier commits, which is accepted. On the *ask* path the user picks the base, and their
+  choice wins over this default.
+- **`git pull --ff-only` is skipped when the chosen base has no upstream.** The
   `create-branch` skill deliberately never pushes, so a stacked branch has no tracking
   branch, and the skill's default path would stop on every second task.
 
@@ -96,28 +113,39 @@ session where the conversation is gone.
 Each is invoked differently, and — this is the part that is easy to get wrong — **each reads
 a different scope**.
 
+The three are independent and are launched together, not one after another. The checklist in
+`tasks.md` is flat only because that is how it represents tasks.
+
 | Review | Invoked by | Reads |
 | --- | --- | --- |
 | `/security-review` | `Skill` tool | **committed history only** (`git diff origin/HEAD...`) |
-| `/code-review high` | `claude -p '/code-review high'` via Bash | branch commits **+ uncommitted changes** |
-| Codex adversarial | `node <plugin>/scripts/codex-companion.mjs adversarial-review` | working tree |
+| `/code-review high` | `claude -p '/code-review high'` via Bash | branch commits **+ working tree** |
+| Codex adversarial | `codex-companion.mjs adversarial-review --scope branch` | branch commits vs trunk |
 
 Neither `/code-review` nor `/codex:adversarial-review` can be called through the `Skill`
 tool — both are marked `disable-model-invocation`. The documented escape hatch differs per
 tool: a headless `claude -p` subprocess for the former, the plugin's own script for the
 latter.
 
-Codex is resolved without hardcoding a version:
+**Codex uses `--scope branch`, not `--scope working-tree`.** The implementation is committed
+in step 4, so by review time the working tree is clean and a working-tree review would
+inspect nothing. The script is resolved without hardcoding a version:
 
 ```bash
 C=$(ls -d ~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs \
       2>/dev/null | sort -V | tail -1)
+[ -n "$C" ] && node "$C" adversarial-review --scope branch --base "$TRUNK"
 ```
 
-An **empty** result means the plugin is absent: skip, report "2 of 3 reviews", carry on. A
-**non-empty** result followed by a non-zero exit means the review *failed* — that is not the
-same thing, and it is reported as a failure rather than filed under "plugin missing". Neither
-case blocks the workflow.
+An **empty** result means the plugin is absent: skip and report the reduced review count. A
+**non-empty** result followed by a non-zero exit means the review *failed* — not the same
+thing, and reported as a failure rather than filed under "plugin missing". Neither case
+blocks the workflow.
+
+**`/security-review` needs `origin/HEAD` to resolve.** It builds its diff against
+`origin/HEAD...`, which hard-fails with `fatal: ambiguous argument` when the ref is missing.
+The workflow tries `git remote set-head origin -a` first; if the repo has no remote at all,
+the review is skipped and the reduced count reported — never reported as a pass.
 
 ## Dependencies
 
@@ -288,8 +316,9 @@ snapshot itself writes a commit object containing the secret. The supposed advan
 simply committing first is nil, and it adds a git dance that leaves a stray `tmp:` commit if
 anything fails midway.
 
-Kept here because it is the right answer if the workflow ever needs to review *before* an
-intentional commit — for example if pushing ever becomes automatic.
+**What was lost.** The ability to review before any commit object exists. Irrelevant while
+nothing is pushed automatically, but it is the right answer the moment that changes — which
+is why the recipe is kept above rather than deleted.
 
 ## A dedicated secret scanner
 
@@ -305,8 +334,11 @@ install. Did **not** catch `DB_PASS = "SuperSecret123!"` — scanners match form
 meaning.
 
 **Why it was not adopted.** It mostly duplicates what `/code-review` already reports, and adds
-a network dependency to every run. Worth revisiting if this repo ever gains CI, where a
-deterministic non-LLM gate has value that a review cannot provide.
+a network dependency to every run.
+
+**What was lost.** Determinism. Every remaining check is an LLM judgement that can vary run to
+run; a scanner either matches the pattern or does not. Worth revisiting if this repo ever
+gains CI, where that property matters more than it does locally.
 
 ## A wrapper skill around the reviews
 
@@ -316,6 +348,10 @@ fan-out, degradation to two reviews.
 **Why it was dropped.** Once `claude -p` and the Codex script turned out to be plain Bash
 calls, there was nothing left for a wrapper to encapsulate. Three lines in `rules.tasks` do
 the same job with one less file to maintain.
+
+**What was lost.** A single place to change review behaviour. The invocations now live in
+`rules.tasks`, so a change to how reviews run means editing prose in the config rather than
+one file with a name.
 
 ## Enumerating trunk branch names
 
@@ -327,6 +363,10 @@ so on.
 branch when it carries a `feature|bugfix|hotfix|chore` prefix, and everything else is treated
 as shared. `release/*` has a prefix but is deliberately excluded.
 
+**What was lost.** Work branches using a prefix outside that set — `docs/…`, `spike/…` — are
+now treated as shared and trigger a new branch. Widening the set is a one-word edit in
+`rules.tasks` if that becomes annoying.
+
 ## Semantic branch matching
 
 **What it was.** Comparing the current branch's description against the new change's
@@ -336,6 +376,9 @@ description to decide reuse.
 objective ones come first — commits ahead of trunk, an open PR, a matching task ID — and they
 settle most cases. When they do not, the workflow shows the facts and asks, because a wrong
 guess is expensive in both directions: a polluted PR, or orphaned work.
+
+**What was lost.** Full automation of the ambiguous case. Continuing related work on an
+existing untracked-ticket branch now costs one question instead of being inferred.
 
 ## Treating every Codex failure as "plugin missing"
 
@@ -350,3 +393,6 @@ config:
 
 Now the file check and the execution are separate: absence is a skip, a non-zero exit is a
 reported failure. Neither blocks, but they are no longer indistinguishable.
+
+**What was lost.** Nothing. The earlier form was simpler to write but reported a review that
+had not happened as though it had, which is worse than the extra line it saved.
