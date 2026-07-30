@@ -10,12 +10,37 @@ was considered, what was rejected, and why.
 This is a proof-of-concept repository: it holds no application code and exists to host and
 exercise the workflow itself.
 
+## Installation via agent
+
+Paste this into any Claude Code session in the project you want to adopt the workflow:
+
+```
+Read https://raw.githubusercontent.com/DrSmile444/openspec-reviewer-poc/refs/heads/main/openspec/config.yaml
+and update my project's openspec/config.yaml to follow the same workflow rules.
+```
+
+Two things to know before running it:
+
+- **It only writes `openspec/config.yaml`.** Nothing else is touched. If the target project
+  already has rules there, tell the agent whether to merge or replace them.
+- **The branch and commit steps need two skills.** They ship in
+  [`.claude/skills/`](.claude/skills/) here — copy `create-branch/` and `commit/` into the
+  target project's `.claude/skills/`, or into `~/.claude/skills/` to have them everywhere.
+  Without them the workflow still runs, but those two steps fall back to whatever the agent
+  improvises.
+
+Afterwards, `/validate-openspec-config` (if you have it) confirms every rule actually reaches
+the CLI rather than being silently dropped.
+
 ## Layout
 
 - `openspec/config.yaml` — schema, project context, and the per-artifact rules that carry the
   workflow
 - `openspec/changes/` — active changes
 - `openspec/specs/` — accepted specifications
+- `.claude/skills/create-branch`, `.claude/skills/commit` — the two skills the workflow calls
+  by name, vendored so the repo is self-contained
+- `.claude/skills/openspec-*`, `.claude/commands/opsx/` — the OpenSpec commands themselves
 - `ENGINEERING_PROMPT.md` — the hand-pasted prompt this workflow replaces, kept for reference
 
 ---
@@ -152,13 +177,15 @@ the review is skipped and the reduced count reported — never reported as a pas
 Nothing is installed and nothing is generated outside this repo. The workflow references only
 what already exists on the machine:
 
-- `create-branch`, `commit` — personal skills in `~/.claude/skills/`
+- `create-branch`, `commit` — vendored into [`.claude/skills/`](.claude/skills/), so a clone
+  has them without any personal setup
 - `run` — built-in skill
 - `/security-review`, `/code-review` — built into the Claude Code binary
 - `codex` plugin — optional; the flow degrades to two reviews without it
 
-The config is portable across your own machines. A teammate cloning this repo would not have
-the personal skills, so those steps would need copying in.
+A project skill shadows a same-named one in `~/.claude/skills/`, so inside this repo the
+vendored copies win. That is the point — the repo is self-contained — but it also means a
+later change to your personal copy will not reach here. Re-copy when you change them.
 
 ---
 
