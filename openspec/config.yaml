@@ -96,3 +96,6 @@ rules:
     - >-
       Do NOT add an archive task. Do NOT add a task that pushes or opens a pull request -
       that stays a manual decision.
+    - >-
+      openspec-reviewer-poc workflow v1 — end of managed block. Rules after this line, if any,
+      are not managed by this install and must never be touched by an upgrade.

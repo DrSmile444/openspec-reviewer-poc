@@ -43,20 +43,20 @@
 
 ## 5. Commit the implementation
 
-- [ ] 5.1 Commit the implementation with the commit skill.
+- [x] 5.1 Commit the implementation with the commit skill.
 
 ## 6. Review
 
-- [ ] 6.1 Review (a): run `/security-review` through the Skill tool (resolve `origin/HEAD`
+- [x] 6.1 Review (a): run `/security-review` through the Skill tool (resolve `origin/HEAD`
   first; skip and report a reduced count if there is no remote).
-- [ ] 6.2 Review (b): run `claude -p '/code-review high'` through Bash.
-- [ ] 6.3 Review (c): run the Codex adversarial review via `codex-companion.mjs
+- [x] 6.2 Review (b): run `claude -p '/code-review high'` through Bash.
+- [x] 6.3 Review (c): run the Codex adversarial review via `codex-companion.mjs
   adversarial-review --scope branch --base <trunk>` if the plugin script resolves; skip and
   note it in the review count if it does not.
 
 ## 7. Fix
 
-- [ ] 7.1 Apply fixes for the findings from all three reviews, once every review has
+- [x] 7.1 Apply fixes for the findings from all three reviews, once every review has
   finished.
 
 ## 8. Commit the fixes

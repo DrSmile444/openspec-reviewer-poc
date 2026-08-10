@@ -3,33 +3,56 @@
 This file is the single source of truth for the portable part of the workflow: the exact
 `rules.tasks` and `rules.proposal` list items that get **merged into** a target project's
 `openspec/config.yaml`, as described in the "Installation via agent" section of
-[`README.md`](README.md).
+[`README.md`](../README.md).
 
 Nothing else in `config.yaml` — `schema`, `context`, `external_docs`, or any other artifact's
 rules (`design`, `specs`, `adrs`, `plan`, `self_review`, …) — is part of this payload. Those
 stay project-specific and an install must never touch them.
 
-This repo's own [`openspec/config.yaml`](openspec/config.yaml) embeds the same `rules.tasks`
+This repo's own [`config.yaml`](config.yaml) embeds the same `rules.tasks`
 content shown below. Keep the two in sync when the workflow changes; this file exists so an
 install prompt has an unambiguous block to read and append, without having to extract it out
 of a config file whose other fields differ from project to project.
 
 ## Version marker
 
-The first line of the `rules.tasks` payload below is a version marker:
+The first and last lines of the `rules.tasks` payload below are start/end markers:
 
 ```
 openspec-reviewer-poc workflow v1 — branch, implement, verify, commit, review, fix, commit.
+...
+openspec-reviewer-poc workflow v1 — end of managed block. Rules after this line, if any,
+are not managed by this install and must never be touched by an upgrade.
 ```
+
+The end marker is what makes an upgrade safe: the *managed block* is every `rules.tasks`
+item from the start marker to the end marker carrying the same version number, inclusive —
+nothing before or after it, no matter what the target project appended around it. A version
+marker with no matching end marker (a start marker is present but nothing after it in the
+list matches `openspec-reviewer-poc workflow v<same-N> — end`) is a shape the install prompt
+does not know how to handle - it stops and asks, rather than guessing where the block ends.
 
 An install checks the target's existing `rules.tasks` for the substring
 `openspec-reviewer-poc workflow v` before doing anything:
 
-- **same version number found** → the workflow is already installed; make no changes.
-- **older version number found** → show the old block and this block, and ask before
-  replacing the old one with this one.
-- **no marker found** → append this whole block to `rules.tasks`, and append the
-  `rules.proposal` bullet below if an equivalent rule isn't already present.
+- **no start marker found** → append this whole block (start marker through end marker) to
+  `rules.tasks`.
+- **start marker found, same version** → compare the target's managed block item-by-item
+  against this one. Identical → already installed, no changes. Different (an item edited,
+  or the end marker missing/moved) → show what differs and ask before repairing it back to
+  this reference block, rather than silently reporting "already installed" over a partial or
+  hand-edited install.
+- **start marker found, older version** → show the target's existing managed block and this
+  one, and ask before replacing the old block with the new one - replacing only the exact
+  item range between the two markers, never anything outside it.
+
+Independently of which of the three cases above applies, the install also checks whether
+`rules.proposal` already has a rule capturing a `Task: <ID>` line and appends the bullet
+below if not - this check is not gated by the `rules.tasks` version marker.
+
+Before any of this, the install confirms `rules.tasks` and `rules.proposal` (whichever
+already exist in the target) are each a flat list of strings - the shape this payload
+assumes. If either exists as something else, it stops and asks rather than writing anything.
 
 Bump this version, and only this version, when the payload's *installed behaviour* changes —
 not for unrelated wording polish.
@@ -120,4 +143,7 @@ not for unrelated wording polish.
 - >-
   Do NOT add an archive task. Do NOT add a task that pushes or opens a pull request -
   that stays a manual decision.
+- >-
+  openspec-reviewer-poc workflow v1 — end of managed block. Rules after this line, if any,
+  are not managed by this install and must never be touched by an upgrade.
 ```
