@@ -15,26 +15,47 @@ exercise the workflow itself.
 Paste this into any Claude Code session in the project you want to adopt the workflow:
 
 ```
-Install this workflow into my project. Download these three files with curl — not WebFetch,
-which summarises instead of returning the file verbatim — and write each to the same path
-here:
+Install this workflow into my project. Download these files with curl — not WebFetch, which
+summarises instead of returning the file verbatim:
 
 https://raw.githubusercontent.com/DrSmile444/openspec-reviewer-poc/refs/heads/main/openspec/config.yaml
+https://raw.githubusercontent.com/DrSmile444/openspec-reviewer-poc/refs/heads/main/openspec/workflow-rules.md
 https://raw.githubusercontent.com/DrSmile444/openspec-reviewer-poc/refs/heads/main/.claude/skills/create-branch/SKILL.md
 https://raw.githubusercontent.com/DrSmile444/openspec-reviewer-poc/refs/heads/main/.claude/skills/commit/SKILL.md
 
-If openspec/config.yaml already exists, show me the diff and ask before overwriting it.
+If openspec/config.yaml does NOT exist yet: write the downloaded config.yaml and
+workflow-rules.md verbatim to the same paths here.
+
+If openspec/config.yaml already EXISTS: do not overwrite it. Instead:
+1. Read my existing rules.tasks list and look for a line containing the substring
+   "openspec-reviewer-poc workflow v".
+2. Same version number as the marker in the downloaded workflow-rules.md → make no changes,
+   tell me it's already installed, stop.
+3. Older version number → show me the existing block and the new one from
+   workflow-rules.md, and ask before replacing the old one.
+4. No marker found → append the entire rules.tasks block from workflow-rules.md to the end
+   of my existing rules.tasks list, and append its rules.proposal bullet to my existing
+   rules.proposal list only if no equivalent rule is already there. Do not touch schema,
+   context, external_docs, or any rules key other than tasks/proposal. Show me a diff of
+   ONLY the lines you're adding — not a full-file diff — and ask before writing.
+
+Either way, write the two skills as a plain overwrite — they're self-contained utility
+skills, not project data.
 ```
 
-`config.yaml` carries the workflow itself; the two skills are what its branch and commit
+`config.yaml` carries the workflow itself; `workflow-rules.md` is the portable payload used
+for merging into an existing `config.yaml`; the two skills are what the branch and commit
 steps call by name. Without them those steps still run, but the agent improvises them.
 
-Same thing without an agent:
+Same thing without an agent — **fresh installs only** (no existing `openspec/config.yaml`;
+merging into an existing one needs the judgment calls above, so it stays an agent-only
+operation):
 
 ```bash
 B=https://raw.githubusercontent.com/DrSmile444/openspec-reviewer-poc/refs/heads/main
 mkdir -p openspec .claude/skills/create-branch .claude/skills/commit
 curl -sL "$B/openspec/config.yaml"                  -o openspec/config.yaml
+curl -sL "$B/openspec/workflow-rules.md"             -o openspec/workflow-rules.md
 curl -sL "$B/.claude/skills/create-branch/SKILL.md" -o .claude/skills/create-branch/SKILL.md
 curl -sL "$B/.claude/skills/commit/SKILL.md"        -o .claude/skills/commit/SKILL.md
 ```
@@ -50,10 +71,20 @@ Two notes:
 Afterwards, `/validate-openspec-config` (if you have it) confirms every rule actually reaches
 the CLI rather than being silently dropped.
 
+### Re-running the install
+
+The `rules.tasks` block carries a version marker (`openspec-reviewer-poc workflow vN`), so
+re-pasting the same agent prompt on a project that already has it installed is a no-op — it
+won't duplicate the branch/review instructions. See
+[`openspec/workflow-rules.md`](openspec/workflow-rules.md) for how the marker and the merge
+logic work.
+
 ## Layout
 
 - `openspec/config.yaml` — schema, project context, and the per-artifact rules that carry the
   workflow
+- `openspec/workflow-rules.md` — the portable `rules.tasks`/`rules.proposal` payload, kept in
+  sync with `config.yaml`, and what an install merges into an existing project's config
 - `openspec/changes/` — active changes
 - `openspec/specs/` — accepted specifications
 - `.claude/skills/create-branch`, `.claude/skills/commit` — the two skills the workflow calls
