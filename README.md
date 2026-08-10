@@ -89,11 +89,13 @@ the CLI rather than being silently dropped.
 
 ### Re-running the install
 
-The `rules.tasks` block carries start/end version markers (`openspec-reviewer-poc workflow
-vN` ... `... vN — end`), so re-pasting the same agent prompt on a project that already has it
-installed compares the installed block against the reference one instead of duplicating the
-branch/review instructions — intact, it's a no-op; edited or incomplete, it's repaired after
-asking. See [`openspec/workflow-rules.md`](openspec/workflow-rules.md) for how the marker and the merge
+`workflow-rules.md`'s `rules.tasks` payload carries start/end version markers
+(`openspec-reviewer-poc workflow vN` ... `... vN — end`), so re-pasting the same agent prompt
+on a project that already has it installed compares the installed block against the
+reference one instead of duplicating the branch/review instructions — intact, it's a no-op;
+edited or incomplete, it's repaired after asking. This repo's own `config.yaml` doesn't carry
+those markers itself - it has nothing else in `rules.tasks` for a marker to bound. See
+[`openspec/workflow-rules.md`](openspec/workflow-rules.md) for how the marker and the merge
 logic work.
 
 ## Layout
