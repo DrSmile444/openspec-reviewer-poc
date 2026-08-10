@@ -34,25 +34,36 @@ unchanged, and SHALL modify only `rules.tasks` and `rules.proposal`.
 
 ### Requirement: Installation is idempotent
 
-Installation SHALL detect whether the workflow is already present via a version marker,
-so re-running the install prompt on an already-installed project does not duplicate the
-workflow's rules.
+Installation SHALL detect whether the workflow is already present by comparing the target's
+`rules.tasks` against the reference payload for an equivalent (not necessarily identical)
+description of the same sequence, so re-running the install prompt on an already-installed
+project does not duplicate the workflow's rules. No literal version-marker string SHALL be
+written into a target's `config.yaml` for this purpose.
 
-#### Scenario: Same version already installed
-- **WHEN** the target's `rules.tasks` already contains the current version marker
+#### Scenario: Equivalent workflow already installed
+- **WHEN** the target's `rules.tasks` already describes the branch/verify/commit/review/fix/
+  commit sequence, whether or not its wording matches the reference payload verbatim
 - **THEN** the install prompt makes no changes to `config.yaml`
 - **AND** reports that the workflow is already installed
 
-#### Scenario: Older version already installed
-- **WHEN** the target's `rules.tasks` contains a version marker older than the current one
-- **THEN** the install prompt shows the old block and the new block
-- **AND** asks the user whether to replace the old block before writing anything
+#### Scenario: Meaningfully different installed version found
+- **WHEN** the target's `rules.tasks` describes a recognizably older or incomplete version of
+  this workflow (e.g. missing one of the three reviews, or a different step order)
+- **THEN** the install prompt shows the existing rules and the reference payload
+- **AND** asks the user whether to replace the existing ones before writing anything
 
 #### Scenario: Not yet installed
-- **WHEN** the target's `rules.tasks` contains no version marker for this workflow
+- **WHEN** the target's `rules.tasks` contains nothing resembling this workflow
 - **THEN** the install prompt appends the current workflow payload to `rules.tasks`
 - **AND** appends the `Task: <ID>` capture bullet to `rules.proposal` if an equivalent rule
   is not already present
+
+#### Scenario: Confirmation covers a wrong semantic match
+- **WHEN** the install prompt judges the target's `rules.tasks` to already contain, lack, or
+  differ from the reference payload
+- **THEN** it shows the diff of what it intends to write, or explicitly states it intends no
+  changes, before writing anything - the human confirmation is the safety net for a
+  comparison that has no literal string to check against
 
 ### Requirement: Installed rules do not collide with plan-derived task rules
 

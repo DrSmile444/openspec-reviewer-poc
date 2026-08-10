@@ -14,48 +14,32 @@ content shown below. Keep the two in sync when the workflow changes; this file e
 install prompt has an unambiguous block to read and append, without having to extract it out
 of a config file whose other fields differ from project to project.
 
-## Version marker
+## Detecting whether this is already installed
 
-The first and last lines of the `rules.tasks` payload below are start/end markers:
+There is no version marker embedded in the payload - a literal sentinel string like
+`openspec-reviewer-poc workflow v1` would sit as noise inside a real project's `config.yaml`
+forever after install, for a mechanism only the installer ever needs. Detection is semantic
+instead: an install reads the target's existing `rules.tasks` and judges whether it already
+describes this same sequence - branch before code, verify, commit, three parallel reviews
+(security-review, code-review, Codex adversarial), fix, commit - even if worded differently
+from the block below.
 
-```
-openspec-reviewer-poc workflow v1 — branch, implement, verify, commit, review, fix, commit.
-...
-openspec-reviewer-poc workflow v1 — end of managed block. Rules after this line, if any,
-are not managed by this install and must never be touched by an upgrade.
-```
+- **not present in any recognisable form** → append the whole block below to `rules.tasks`.
+- **present and equivalent to the block below** → already installed, make no changes.
+- **present but meaningfully different** (missing one of the three reviews, a different step
+  order, an older wording of this same payload) → show both versions and ask before
+  replacing - never overwrite silently on a fuzzy match.
 
-The end marker is what makes an upgrade safe: the *managed block* is every `rules.tasks`
-item from the start marker to the end marker carrying the same version number, inclusive —
-nothing before or after it, no matter what the target project appended around it. A version
-marker with no matching end marker (a start marker is present but nothing after it in the
-list matches `openspec-reviewer-poc workflow v<same-N> — end`) is a shape the install prompt
-does not know how to handle - it stops and asks, rather than guessing where the block ends.
-
-An install checks the target's existing `rules.tasks` for the substring
-`openspec-reviewer-poc workflow v` before doing anything:
-
-- **no start marker found** → append this whole block (start marker through end marker) to
-  `rules.tasks`.
-- **start marker found, same version** → compare the target's managed block item-by-item
-  against this one. Identical → already installed, no changes. Different (an item edited,
-  or the end marker missing/moved) → show what differs and ask before repairing it back to
-  this reference block, rather than silently reporting "already installed" over a partial or
-  hand-edited install.
-- **start marker found, older version** → show the target's existing managed block and this
-  one, and ask before replacing the old block with the new one - replacing only the exact
-  item range between the two markers, never anything outside it.
-
-Independently of which of the three cases above applies, the install also checks whether
-`rules.proposal` already has a rule capturing a `Task: <ID>` line and appends the bullet
-below if not - this check is not gated by the `rules.tasks` version marker.
+Whichever case applies, the install also checks whether `rules.proposal` already has a rule
+capturing a `Task: <ID>` line and appends the bullet below if not.
 
 Before any of this, the install confirms `rules.tasks` and `rules.proposal` (whichever
 already exist in the target) are each a flat list of strings - the shape this payload
 assumes. If either exists as something else, it stops and asks rather than writing anything.
 
-Bump this version, and only this version, when the payload's *installed behaviour* changes —
-not for unrelated wording polish.
+Because this relies on judgment rather than an exact string match, the install always shows
+the target's rules.tasks/rules.proposal diff and asks before writing - that confirmation is
+the safety net for a wrong "already installed" or "meaningfully different" call.
 
 ## `rules.proposal` addition
 
@@ -72,11 +56,10 @@ not for unrelated wording polish.
 
 ```yaml
 - >-
-  openspec-reviewer-poc workflow v1 — branch, implement, verify, commit, review, fix,
-  commit. The steps this block adds (branch, verify, commit, review, fix, commit) are
-  process scaffolding around this project's own implementation tasks, not implementation
-  tasks themselves - they are exempt from any rule elsewhere in this list that restricts
-  tasks to those derived from a plan, design, or spec document.
+  The branch, verify, commit, review, fix, and commit steps below are process scaffolding
+  around this project's own implementation tasks, not implementation tasks themselves -
+  they are exempt from any rule elsewhere in this list that restricts tasks to those
+  derived from a plan, design, or spec document.
 - >-
   The rules below are constraints on the task list you generate, not text to copy into
   it. Keep every generated task line to one or two sentences.
@@ -143,7 +126,4 @@ not for unrelated wording polish.
 - >-
   Do NOT add an archive task. Do NOT add a task that pushes or opens a pull request -
   that stays a manual decision.
-- >-
-  openspec-reviewer-poc workflow v1 — end of managed block. Rules after this line, if any,
-  are not managed by this install and must never be touched by an upgrade.
 ```

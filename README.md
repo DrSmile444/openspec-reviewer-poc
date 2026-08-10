@@ -26,32 +26,10 @@ https://raw.githubusercontent.com/DrSmile444/openspec-reviewer-poc/refs/heads/ma
 If openspec/config.yaml does NOT exist yet: write the downloaded config.yaml and
 workflow-rules.md verbatim to the same paths here, then write the two skills, and stop.
 
-If openspec/config.yaml already EXISTS: do not overwrite it wholesale. Instead:
-0. Check that rules.tasks and rules.proposal, whichever of the two already exist in my file,
-   are each a flat list of strings. If either exists as something else, stop and ask me how
-   to proceed rather than writing anything.
-1. In my existing rules.tasks, look for a line containing "openspec-reviewer-poc workflow v"
-   (the start marker) and, later in the same list, a line containing
-   "openspec-reviewer-poc workflow v<same number> — end" (the matching end marker). The
-   managed block is every item from the start marker to that end marker, inclusive - items
-   outside that range are mine; never touch them. A start marker with no matching end marker
-   is a shape you don't know how to handle - stop and ask instead of guessing the boundary.
-2. No start marker found → append the whole rules.tasks block from workflow-rules.md (start
-   marker through end marker) to the end of my existing rules.tasks list.
-3. Start marker found, same version as workflow-rules.md → compare my managed block
-   item-by-item against workflow-rules.md's block. Identical → tell me it's already
-   installed and make no changes. Different (an item missing, edited, or the end marker
-   moved) → show me what differs and ask before repairing my block back to match
-   workflow-rules.md's.
-4. Start marker found, older version → show me my existing managed block and the new one
-   from workflow-rules.md, and ask before replacing mine with it - replace only the exact
-   item range between my start and end markers, nothing outside it.
-5. Regardless of which of 2-4 applied: check whether my rules.proposal already has a rule
-   capturing a `Task: <ID>` line; if not, append the rules.proposal bullet from
-   workflow-rules.md.
-Never touch schema, context, external_docs, or any rules key other than tasks/proposal. Show
-me a diff of ONLY the lines you're adding or changing in rules.tasks/rules.proposal - never a
-full-file diff - and ask before writing any of it.
+If openspec/config.yaml already EXISTS: do not overwrite it wholesale. Follow the merge
+procedure in workflow-rules.md's "Detecting whether this is already installed" section -
+never touch schema, context, external_docs, or any rules key other than tasks/proposal, and
+show me a diff of only the lines you're adding or changing before writing anything.
 
 Either way (fresh install or merge), verify .claude/skills/create-branch/SKILL.md and
 .claude/skills/commit/SKILL.md exist and match the downloaded copies; write any that are
@@ -60,12 +38,13 @@ utility skills, not project data.
 ```
 
 `config.yaml` carries the workflow itself; `workflow-rules.md` is the portable payload used
-for merging into an existing `config.yaml`; the two skills are what the branch and commit
-steps call by name. Without them those steps still run, but the agent improvises them.
+for merging into an existing `config.yaml`, including the merge procedure the prompt above
+points to; the two skills are what the branch and commit steps call by name. Without them
+those steps still run, but the agent improvises them.
 
 Same thing without an agent — **fresh installs only** (no existing `openspec/config.yaml`;
-merging into an existing one needs the judgment calls above, so it stays an agent-only
-operation):
+merging into an existing one needs the judgment calls in workflow-rules.md, so it stays an
+agent-only operation):
 
 ```bash
 B=https://raw.githubusercontent.com/DrSmile444/openspec-reviewer-poc/refs/heads/main
@@ -89,14 +68,12 @@ the CLI rather than being silently dropped.
 
 ### Re-running the install
 
-`workflow-rules.md`'s `rules.tasks` payload carries start/end version markers
-(`openspec-reviewer-poc workflow vN` ... `... vN — end`), so re-pasting the same agent prompt
-on a project that already has it installed compares the installed block against the
-reference one instead of duplicating the branch/review instructions — intact, it's a no-op;
-edited or incomplete, it's repaired after asking. This repo's own `config.yaml` doesn't carry
-those markers itself - it has nothing else in `rules.tasks` for a marker to bound. See
-[`openspec/workflow-rules.md`](openspec/workflow-rules.md) for how the marker and the merge
-logic work.
+Re-pasting the same agent prompt on a project that already has the workflow installed
+doesn't duplicate the branch/review instructions: the agent compares what's already in
+`rules.tasks` against the reference payload and treats an equivalent match as a no-op rather
+than appending a second copy. There is no literal version marker for it to key off - see
+[`openspec/workflow-rules.md`](openspec/workflow-rules.md) for why that's deliberate and how
+the comparison works.
 
 ## Layout
 
