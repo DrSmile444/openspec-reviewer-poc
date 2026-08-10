@@ -61,5 +61,5 @@
 
 ## 8. Commit the fixes
 
-- [ ] 8.1 Commit the fixes with the commit skill, as a separate commit from the
+- [x] 8.1 Commit the fixes with the commit skill, as a separate commit from the
   implementation commit.
