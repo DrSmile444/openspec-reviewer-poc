@@ -11,9 +11,11 @@ context: |
 
   Conventions: Conventional Branch for branch names, Conventional Commits for commits.
 
-# The rules.proposal and rules.tasks entries below are the portable workflow payload also
-# published standalone in openspec/workflow-rules.md - that file is the source an install
-# into another project merges from. Keep the two in sync when the workflow changes.
+# The rules.proposal and rules.tasks entries below are also published standalone in
+# openspec/workflow-rules.md, packaged with version markers for installing into another
+# project's config.yaml. This file doesn't need those markers - nothing else is merged
+# into rules.tasks here, so there's no block boundary to detect. Keep the core rule text
+# below in sync with workflow-rules.md when the workflow itself changes.
 rules:
   proposal:
     - >-
@@ -24,12 +26,6 @@ rules:
       cannot recover it from the conversation.
 
   tasks:
-    - >-
-      openspec-reviewer-poc workflow v1 — branch, implement, verify, commit, review, fix,
-      commit. The steps this block adds (branch, verify, commit, review, fix, commit) are
-      process scaffolding around this project's own implementation tasks, not implementation
-      tasks themselves - they are exempt from any rule elsewhere in this list that restricts
-      tasks to those derived from a plan, design, or spec document.
     - >-
       The rules below are constraints on the task list you generate, not text to copy into
       it. Keep every generated task line to one or two sentences.
@@ -96,6 +92,3 @@ rules:
     - >-
       Do NOT add an archive task. Do NOT add a task that pushes or opens a pull request -
       that stays a manual decision.
-    - >-
-      openspec-reviewer-poc workflow v1 — end of managed block. Rules after this line, if any,
-      are not managed by this install and must never be touched by an upgrade.
